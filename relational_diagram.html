@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive relational schema diagram for the Vehicle Registration DBMS project">
+  <title>Relational Diagram | Vehicle Registration DBMS</title>
+  <style>
+    :root {
+      --ink: #132238;
+      --muted: #64748b;
+      --line: #9aabba;
+      --paper: #f4f7fb;
+      --card: #ffffff;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --green: #047857;
+      --green-soft: #d1fae5;
+      --purple: #7e22ce;
+      --purple-soft: #f3e8ff;
+      --shadow: 0 12px 32px rgba(30, 55, 85, .12), 0 2px 5px rgba(30, 55, 85, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { width: 100%; height: 100%; margin: 0; }
+
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input { font: inherit; }
+
+    .topbar {
+      position: fixed;
+      z-index: 50;
+      inset: 0 0 auto 0;
+      min-height: 72px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: #fff;
+      background: linear-gradient(112deg, #102a43, #173f67 64%, #155e75);
+      box-shadow: 0 5px 22px rgba(15, 34, 55, .25);
+    }
+
+    .brand { min-width: 300px; }
+    .eyebrow { margin-bottom: 2px; color: #8ed8ef; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(16px, 2vw, 21px); letter-spacing: -.02em; }
+    .summary { margin-top: 4px; color: #c7d7e7; font-size: 11px; }
+
+    .toolbar { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .search-wrap { position: relative; }
+    .search-wrap::before { content: "⌕"; position: absolute; left: 11px; top: 7px; color: #7590aa; font-size: 18px; }
+    #search {
+      width: min(260px, 25vw);
+      height: 36px;
+      padding: 0 12px 0 34px;
+      color: #102a43;
+      background: #fff;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 9px;
+      outline: none;
+    }
+    #search:focus { box-shadow: 0 0 0 3px rgba(125, 211, 252, .4); }
+
+    .tool-button {
+      height: 36px;
+      padding: 0 12px;
+      color: #eef8ff;
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+    }
+    .tool-button:hover { background: rgba(255,255,255,.17); }
+    .tool-button:active { transform: translateY(1px); }
+    .tool-button.active { color: #0e3a58; background: #b9e9f8; border-color: #b9e9f8; }
+
+    .notation-guide {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 8px;
+      color: #333;
+      background: rgba(255,255,255,.72);
+      border: 1px solid #888;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+    .notation-item { display: flex; align-items: center; gap: 4px; font-size: 10px; }
+    .notation-item svg { width: 42px; height: 18px; overflow: visible; flex: 0 0 auto; }
+    .notation-item line, .notation-item path { stroke: #4b5563; stroke-width: 2; fill: none; }
+    .notation-item circle { fill: #4b5563; }
+
+    #viewport {
+      position: absolute;
+      inset: 72px 0 0;
+      overflow: hidden;
+      cursor: grab;
+      background-color: var(--paper);
+      background-image: radial-gradient(circle, rgba(83, 112, 140, .22) 1px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+    #viewport.panning, #viewport.dragging { cursor: grabbing; }
+
+    #world {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2600px;
+      height: 1700px;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    #links { position: absolute; inset: 0; width: 2600px; height: 1700px; overflow: visible; }
+    .relation-path { fill: none; stroke: var(--line); stroke-width: 2; }
+    .relation-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+    .relation-group:hover .relation-path { stroke: #2563eb; stroke-width: 3; }
+    .relation-label {
+      fill: #536b82;
+      stroke: var(--paper);
+      stroke-width: 7px;
+      paint-order: stroke;
+      font-size: 11px;
+      font-weight: 800;
+      pointer-events: none;
+    }
+    .relation-group:hover .relation-label { fill: #1d4ed8; }
+
+    .table-card {
+      position: absolute;
+      width: 330px;
+      overflow: hidden;
+      background: var(--card);
+      border: 1px solid #cad5e1;
+      border-radius: 11px;
+      box-shadow: var(--shadow);
+      transition: opacity .18s, box-shadow .18s, filter .18s;
+      user-select: none;
+    }
+    .table-card:hover { box-shadow: 0 18px 38px rgba(30, 55, 85, .18), 0 2px 5px rgba(30, 55, 85, .09); }
+    .table-card.dragging-card { box-shadow: 0 22px 46px rgba(26, 71, 112, .24); }
+    .table-card.dim { opacity: .18; filter: grayscale(.75); }
+    .table-card.match { outline: 4px solid rgba(37, 99, 235, .24); border-color: #2563eb; }
+    .table-card.domain-core .table-head { background: linear-gradient(110deg, #173f67, #1c5b83); }
+    .table-card.domain-docs .table-head { background: linear-gradient(110deg, #6d3a08, #a35a0b); }
+    .table-card.domain-rto .table-head { background: linear-gradient(110deg, #166044, #087860); }
+    .table-card.domain-money .table-head { background: linear-gradient(110deg, #57247a, #7e3aa4); }
+
+    .table-head {
+      height: 48px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      cursor: move;
+    }
+    .table-icon {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 7px;
+      background: rgba(255,255,255,.12);
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .table-title { min-width: 0; }
+    .table-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 800; }
+    .table-meta { margin-top: 2px; color: rgba(255,255,255,.72); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+
+    .columns { margin: 0; padding: 5px 0 7px; list-style: none; }
+    .column {
+      min-height: 27px;
+      padding: 4px 10px;
+      display: grid;
+      grid-template-columns: 35px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 1px solid #edf1f5;
+      font-size: 11px;
+    }
+    .column:last-child { border-bottom: 0; }
+    .column:hover { background: #f4f8fc; }
+    .column.foreign { background: linear-gradient(90deg, rgba(219,234,254,.58), transparent 72%); }
+    .column.primary { font-weight: 750; }
+    .column-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .column-type { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; white-space: nowrap; }
+    body.hide-types .column { grid-template-columns: 35px minmax(0, 1fr); }
+    body.hide-types .column-type { display: none; }
+
+    .keyset { display: flex; gap: 2px; }
+    .key {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 3px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 4px;
+      font-size: 7.5px;
+      font-weight: 900;
+      letter-spacing: -.02em;
+    }
+    .key.pk { color: #8a4800; background: var(--amber-soft); border: 1px solid #f2c66d; }
+    .key.fk { color: #174ea6; background: var(--blue-soft); border: 1px solid #93c5fd; }
+    .key.uq { color: #6b21a8; background: var(--purple-soft); border: 1px solid #d8b4fe; }
+    .null-dot { color: #94a3b8; font-size: 9px; }
+
+    .legend {
+      position: fixed;
+      z-index: 40;
+      left: 16px;
+      bottom: 16px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #536b82;
+      background: rgba(255,255,255,.94);
+      border: 1px solid #d4dee8;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(30,55,85,.1);
+      font-size: 10px;
+      backdrop-filter: blur(8px);
+    }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .legend-line { width: 30px; height: 2px; background: #9aabba; position: relative; }
+    .legend-line::before { content: "1"; position: absolute; top: -13px; left: -2px; font-weight: 800; }
+    .legend-line::after { content: "0..*"; position: absolute; top: -13px; right: -5px; font-weight: 800; }
+
+    .zoom-controls {
+      position: fixed;
+      z-index: 40;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 38px);
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #d4dee8;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(30,55,85,.1);
+    }
+    .zoom-controls button { height: 38px; color: #27445f; background: #fff; border: 0; border-right: 1px solid #e2e8f0; cursor: pointer; font-size: 17px; }
+    .zoom-controls button:last-child { border: 0; }
+    .zoom-controls button:hover { background: #edf5fb; }
+
+    #toast {
+      position: fixed;
+      z-index: 60;
+      left: 50%;
+      bottom: 18px;
+      padding: 8px 13px;
+      color: #fff;
+      background: #173f67;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      font-size: 11px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 12px);
+      transition: .18s ease;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 820px) {
+      .topbar { min-height: 116px; align-items: flex-start; flex-wrap: wrap; }
+      .brand { min-width: 100%; }
+      .toolbar { width: 100%; margin: 0; }
+      #search { width: 42vw; }
+      #viewport { top: 116px; }
+      .legend { display: none; }
+    }
+
+    /* Classic database-designer notation, matching the supplied reference. */
+    body {
+      color: #222;
+      background: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .topbar {
+      min-height: 64px;
+      padding: 9px 18px;
+      color: #222;
+      background: #e5e5e5;
+      border-bottom: 1px solid #777;
+      box-shadow: none;
+    }
+    .eyebrow { color: #555; }
+    h1 { font-size: 18px; font-weight: 600; }
+    .summary { color: #555; }
+    .tool-button {
+      color: #222;
+      background: #f7f7f7;
+      border-color: #888;
+      border-radius: 2px;
+    }
+    .tool-button:hover, .tool-button.active { color: #111; background: #fff; border-color: #444; }
+    #search { height: 32px; border-color: #888; border-radius: 2px; }
+    #viewport {
+      top: 64px;
+      background: #fff;
+      background-image: none;
+    }
+    .table-card,
+    .table-card:hover {
+      width: 170px;
+      border: 1px solid #555;
+      border-radius: 0;
+      box-shadow: none;
+      background: #fff;
+    }
+    .table-card.match { outline: 3px solid rgba(0, 90, 180, .3); border-color: #155e9a; }
+    .table-card.dragging-card { box-shadow: 3px 3px 0 rgba(0,0,0,.15); }
+    .table-card.domain-core .table-head,
+    .table-card.domain-docs .table-head,
+    .table-card.domain-rto .table-head,
+    .table-card.domain-money .table-head,
+    .table-head {
+      height: 24px;
+      padding: 2px 6px;
+      justify-content: center;
+      color: #222;
+      background: #d5d5d5;
+      border-bottom: 1px solid #666;
+    }
+    .table-icon, .table-meta { display: none; }
+    .table-title { text-align: center; }
+    .table-name { font: 11px Arial, Helvetica, sans-serif; }
+    .columns { padding: 0; }
+    .column,
+    body.hide-types .column {
+      min-height: 18px;
+      padding: 1px 5px 1px 0;
+      grid-template-columns: 36px minmax(0, 1fr);
+      gap: 5px;
+      border-bottom: 0;
+      font-size: 10.5px;
+    }
+    .column:hover { background: #f2f2f2; }
+    .column.foreign { background: #fff; }
+    .column.pk-last { border-bottom: 1px solid #777; }
+    .column.primary .column-name { font-weight: 700; text-decoration: underline; }
+    .keyset {
+      min-height: 18px;
+      height: 100%;
+      padding: 1px 4px;
+      justify-content: flex-start;
+      align-items: center;
+      border-right: 1px solid #999;
+    }
+    .key,
+    .key.pk,
+    .key.fk,
+    .key.uq {
+      min-width: 0;
+      height: auto;
+      padding: 0;
+      color: #333;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      font-size: 9px;
+    }
+    .key + .key::before { content: "/"; margin: 0 1px; color: #777; }
+    .null-dot { display: none; }
+    .column-type { display: none; }
+    #typesButton { display: none; }
+    body:not(.hide-types) .column { grid-template-columns: 36px minmax(0, 1fr) auto; }
+    body:not(.hide-types) .column-type { display: block; }
+    .relation-path {
+      stroke: #4b5563;
+      stroke-width: 1.8;
+      stroke-dasharray: none;
+      stroke-linecap: square;
+      stroke-linejoin: round;
+    }
+    .relation-group:hover .relation-path { stroke: #111; stroke-width: 2; }
+    .relation-hit { cursor: move; }
+    .relation-label { display: none; }
+    .legend {
+      color: #333;
+      background: rgba(255,255,255,.96);
+      border-color: #777;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .legend-line { background: #4b5563; border: 0; }
+    .zoom-controls { border-color: #777; border-radius: 0; box-shadow: none; }
+    .zoom-controls button { color: #222; border-color: #aaa; }
+
+    @media (max-width: 820px) {
+      .topbar { min-height: 108px; }
+      #viewport { top: 108px; }
+      .notation-guide { order: 3; }
+    }
+    @media (min-width: 821px) and (max-width: 1150px) {
+      .search-wrap { display: none; }
+    }
+  </style>
+</head>
+<body class="hide-types">
+  <header class="topbar">
+    <div class="brand">
+      <div class="eyebrow">Database schema</div>
+      <h1>Vehicle Registration DBMS — Relational Diagram</h1>
+      <div class="summary">15 tables · 101 columns · 18 foreign keys · PostgreSQL</div>
+    </div>
+    <div class="toolbar" aria-label="Diagram tools">
+      <label class="search-wrap">
+        <input id="search" type="search" placeholder="Find table or column…" aria-label="Find a table or column">
+      </label>
+      <button id="typesButton" class="tool-button" type="button" title="Show or hide SQL data types">Types</button>
+      <button id="fitButton" class="tool-button" type="button" title="Fit the complete schema in the window">Fit diagram</button>
+    </div>
+  </header>
+
+  <main id="viewport" aria-label="Interactive relational database diagram">
+    <div id="world">
+      <svg id="links" aria-hidden="true">
+        <defs>
+          <marker id="to-one" markerWidth="20" markerHeight="20" refX="18" refY="10" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M13 2V18" fill="none" stroke="#4b5563" stroke-width="1.8"/>
+          </marker>
+          <marker id="to-many" markerWidth="28" markerHeight="20" refX="19" refY="10" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M14 10L2 2M14 10H2M14 10L2 18" fill="none" stroke="#4b5563" stroke-width="1.8"/>
+            <circle cx="17" cy="10" r="4.5" fill="#4b5563" stroke="#4b5563" stroke-width="1"/>
+          </marker>
+          <marker id="to-zero-one" markerWidth="25" markerHeight="20" refX="19" refY="10" orient="auto" markerUnits="userSpaceOnUse">
+            <circle cx="16" cy="10" r="4.5" fill="#4b5563" stroke="#4b5563" stroke-width="1"/>
+            <path d="M7 2V18" fill="none" stroke="#4b5563" stroke-width="1.8"/>
+          </marker>
+        </defs>
+        <g id="relationLayer"></g>
+      </svg>
+      <section id="tables" aria-label="Database tables"></section>
+    </div>
+  </main>
+
+  <div class="zoom-controls" aria-label="Zoom controls">
+    <button id="zoomOut" type="button" title="Zoom out">−</button>
+    <button id="resetView" type="button" title="Reset table positions and view">⌂</button>
+    <button id="zoomIn" type="button" title="Zoom in">+</button>
+  </div>
+  <div id="toast" role="status"></div>
+
+  <script>
+    const tables = [
+      { id:'users', domain:'core', x:20, y:200, columns:[
+        ['user_id','char(12)','PK'], ['password','varchar(255)',''], ['fname','varchar(50)',''],
+        ['mname','varchar(50)','NULL'], ['lname','varchar(50)','NULL'], ['dob','date',''],
+        ['gender','varchar(10)','NULL'], ['blood_group','varchar(3)','NULL'], ['email','varchar(120)','UQ NULL'],
+        ['phone_number','varchar(15)','UQ'], ['street','varchar(100)','NULL'], ['city','varchar(50)','NULL'],
+        ['state','varchar(50)','NULL'], ['pincode','char(6)','NULL']
+      ]},
+      { id:'e_wallet', domain:'money', x:20, y:20, columns:[
+        ['wallet_id','serial','PK'], ['user_id','char(12)','FK UQ'], ['balance','numeric(12,2)',''], ['status','varchar(10)','']
+      ]},
+      { id:'wallet_transaction', domain:'money', x:260, y:20, columns:[
+        ['transaction_id','serial','PK'], ['from_wallet_id','integer','FK'], ['to_wallet_id','integer','FK NULL'],
+        ['amount','numeric(12,2)',''], ['purpose','varchar(10)','NULL'], ['tran_datetime','timestamp',''], ['status','varchar(10)','']
+      ]},
+      { id:'officer', domain:'rto', x:740, y:20, columns:[
+        ['officer_id','serial','PK'], ['name','varchar(100)',''], ['rto_code','varchar(10)','FK']
+      ]},
+      { id:'rto', domain:'rto', x:980, y:220, columns:[
+        ['rto_code','varchar(10)','PK'], ['rto_name','varchar(100)',''], ['city','varchar(50)','NULL'],
+        ['district','varchar(50)','NULL'], ['state','varchar(50)','NULL'], ['pincode','char(6)','']
+      ]},
+      { id:'ownership', domain:'core', x:260, y:270, columns:[
+        ['ownership_id','serial','PK'], ['vehicle_id','varchar(17)','FK'], ['owner_id','char(12)','FK'],
+        ['from_date','date',''], ['to_date','date','NULL']
+      ]},
+      { id:'vehicle', domain:'core', x:500, y:285, columns:[
+        ['vehicle_id','varchar(17)','PK'], ['model_name','varchar(60)',''], ['vehicle_weight','integer','NULL'],
+        ['manufacturer','varchar(60)','NULL'], ['manufactured_year','integer','NULL'], ['registration_type','varchar(15)','NULL'],
+        ['body_type','varchar(20)','NULL'], ['fuel_type','varchar(10)','NULL'], ['odometer_reading','integer','NULL'],
+        ['registration_date','date','NULL']
+      ]},
+      { id:'license', domain:'rto', x:980, y:560, columns:[
+        ['license_no','varchar(20)','PK'], ['user_id','char(12)','FK'], ['issue_date','date',''],
+        ['expiry_date','date',''], ['license_type','varchar(15)',''], ['vehicle_class','varchar(20)',''],
+        ['issuing_rto_id','varchar(10)','FK'], ['status','varchar(10)','']
+      ]},
+      { id:'permit', domain:'docs', x:740, y:270, columns:[
+        ['permit_id','serial','PK'], ['vehicle_id','varchar(17)','FK'], ['permit_type','varchar(30)',''],
+        ['issuing_rto_id','varchar(10)','FK'], ['issue_date','date',''], ['expiry_date','date',''],
+        ['max_load_capacity','numeric(8,2)',''], ['max_passengers','integer','']
+      ]},
+      { id:'insurance', domain:'docs', x:20, y:560, columns:[
+        ['policy_id','varchar(30)','PK'], ['vehicle_id','varchar(17)','FK'], ['issue_date','date',''],
+        ['expiry_date','date',''], ['coverage_amount','numeric(12,2)',''], ['insurance_type','varchar(15)','NULL'],
+        ['premium_amount','numeric(10,2)',''], ['number_of_claims','integer',''], ['insurance_company','varchar(100)','']
+      ]},
+      { id:'rc_book', domain:'docs', x:210, y:590, columns:[
+        ['registration_no','varchar(20)','PK'], ['vehicle_id','varchar(17)','FK UQ'], ['plate_number','varchar(15)','UQ'],
+        ['chassis_no','varchar(30)','UQ'], ['engine_no','varchar(30)','UQ'], ['color','varchar(20)','']
+      ]},
+      { id:'puc', domain:'docs', x:400, y:620, columns:[
+        ['certificate_number','varchar(30)','PK'], ['vehicle_id','varchar(17)','FK'], ['date_of_test','date',''],
+        ['valid_until','date',''], ['centre_code','varchar(15)','']
+      ]},
+      { id:'challan', domain:'rto', x:500, y:20, columns:[
+        ['challan_id','serial','PK'], ['vehicle_id','varchar(17)','FK'], ['issuing_officer_id','integer','FK'],
+        ['amount','numeric(10,2)',''], ['reason','varchar(200)',''], ['challan_date','date',''],
+        ['location','varchar(100)',''], ['is_paid','boolean',''], ['wallet_transaction_id','integer','FK UQ NULL']
+      ]},
+      { id:'permit_route', domain:'docs', x:780, y:560, columns:[
+        ['permit_id','integer','PK FK'], ['authorized_route','varchar(100)','PK']
+      ]},
+      { id:'vehicle_log', domain:'docs', x:590, y:600, columns:[
+        ['status_id','serial','PK'], ['vehicle_id','varchar(17)','FK'], ['vehicle_status','varchar(20)',''],
+        ['start_date','date',''], ['end_date','date','NULL']
+      ]}
+    ];
+
+    // Each relation runs from the child FK to its referenced parent key.
+    const relations = [
+      { child:'officer', field:'rto_code', parent:'rto', target:'rto_code', many:true },
+      { child:'e_wallet', field:'user_id', parent:'users', target:'user_id', unique:true },
+      { child:'wallet_transaction', field:'from_wallet_id', parent:'e_wallet', target:'wallet_id', many:true, role:'from', bendX:-10, bendY:-28 },
+      { child:'wallet_transaction', field:'to_wallet_id', parent:'e_wallet', target:'wallet_id', many:true, optional:true, role:'to', bendX:10, bendY:28 },
+      { child:'ownership', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true },
+      { child:'ownership', field:'owner_id', parent:'users', target:'user_id', many:true },
+      { child:'insurance', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true, route:'vehicle-south', routeY:510, port:.14 },
+      { child:'rc_book', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', unique:true, route:'vehicle-south', routeY:525, port:.37 },
+      { child:'puc', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true, route:'vehicle-south', routeY:540, port:.60 },
+      { child:'license', field:'user_id', parent:'users', target:'user_id', many:true, route:'south' },
+      { child:'license', field:'issuing_rto_id', parent:'rto', target:'rto_code', many:true },
+      { child:'permit', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true },
+      { child:'permit', field:'issuing_rto_id', parent:'rto', target:'rto_code', many:true },
+      { child:'permit_route', field:'permit_id', parent:'permit', target:'permit_id', many:true },
+      { child:'vehicle_log', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true, route:'vehicle-south', routeY:555, port:.83 },
+      { child:'challan', field:'vehicle_id', parent:'vehicle', target:'vehicle_id', many:true },
+      { child:'challan', field:'issuing_officer_id', parent:'officer', target:'officer_id', many:true },
+      { child:'challan', field:'wallet_transaction_id', parent:'wallet_transaction', target:'transaction_id', unique:true, optional:true }
+    ];
+
+    const initialPositions = Object.fromEntries(tables.map(t => [t.id, {x:t.x, y:t.y}]));
+    const initialRelationRoutes = relations.map(r => ({
+      bendX: r.bendX || 0,
+      bendY: r.bendY || 0
+    }));
+    const tableLayer = document.querySelector('#tables');
+    const relationLayer = document.querySelector('#relationLayer');
+    const viewport = document.querySelector('#viewport');
+    const world = document.querySelector('#world');
+    const cards = new Map();
+    let scale = 1, panX = 0, panY = 0;
+    let panning = false, dragging = null, draggingRelation = null;
+    let startX = 0, startY = 0;
+    let toastTimer;
+
+    function keyBadges(flags, fkNumber) {
+      return ['PK','FK','UQ']
+        .filter(k => flags.includes(k))
+        .map(k => `<b class="key ${k.toLowerCase()}">${k === 'FK' ? `FK${fkNumber}` : k}</b>`)
+        .join('');
+    }
+
+    function renderTables() {
+      tables.forEach(table => {
+        const card = document.createElement('article');
+        card.className = `table-card domain-${table.domain}`;
+        card.id = `table-${table.id}`;
+        card.dataset.table = table.id;
+        const longestLabel = Math.max(table.id.length, ...table.columns.map(column => column[0].length));
+        const compactWidth = Math.max(145, Math.min(190, Math.ceil(54 + longestLabel * 6.3)));
+        card.style.width = `${compactWidth}px`;
+        card.style.left = `${table.x}px`;
+        card.style.top = `${table.y}px`;
+        const pkCount = table.columns.filter(c => c[2].includes('PK')).length;
+        const lastPkIndex = table.columns.reduce((last, c, i) => c[2].includes('PK') ? i : last, -1);
+        const foreignKeys = table.columns.filter(c => c[2].includes('FK')).map(c => c[0]);
+        card.innerHTML = `
+          <header class="table-head" title="Drag to move ${table.id}">
+            <span class="table-icon">▦</span>
+            <span class="table-title">
+              <span class="table-name">${table.id}</span>
+              <span class="table-meta">${table.columns.length} columns · ${pkCount > 1 ? 'composite key' : 'base table'}</span>
+            </span>
+          </header>
+          <ul class="columns">
+            ${table.columns.map(([name,type,flags], columnIndex) => `
+              <li class="column ${flags.includes('PK')?'primary':''} ${columnIndex === lastPkIndex?'pk-last':''} ${flags.includes('FK')?'foreign':''}" data-column="${name}" title="${name}: ${type}${flags.includes('NULL')?' (nullable)':''}">
+                <span class="keyset">${keyBadges(flags, foreignKeys.indexOf(name) + 1)}${flags.includes('NULL')?'<i class="null-dot">○</i>':''}</span>
+                <span class="column-name">${name}</span>
+                <span class="column-type">${type}</span>
+              </li>`).join('')}
+          </ul>`;
+        tableLayer.appendChild(card);
+        cards.set(table.id, card);
+        card.querySelector('.table-head').addEventListener('pointerdown', beginTableDrag);
+        card.addEventListener('dblclick', () => focusTable(table.id));
+      });
+      requestAnimationFrame(drawRelations);
+    }
+
+    function tablePoint(card, otherCard, lane = 0) {
+      const x = card.offsetLeft, y = card.offsetTop, w = card.offsetWidth, h = card.offsetHeight;
+      const ox = otherCard.offsetLeft + otherCard.offsetWidth / 2;
+      const oy = otherCard.offsetTop + otherCard.offsetHeight / 2;
+      const cx = x + w / 2, cy = y + h / 2;
+      const dx = ox - cx, dy = oy - cy;
+      if (Math.abs(dx / w) > Math.abs(dy / h)) {
+        return { x: dx > 0 ? x + w : x, y: cy + lane * 14, side: dx > 0 ? 'right' : 'left' };
+      }
+      return { x: cx + lane * 14, y: dy > 0 ? y + h : y, side: dy > 0 ? 'bottom' : 'top' };
+    }
+
+    function relationPath(a, b, relation) {
+      const aHorizontal = ['left','right'].includes(a.side);
+      const bHorizontal = ['left','right'].includes(b.side);
+      const bendX = relation.bendX || 0;
+      const bendY = relation.bendY || 0;
+      if (aHorizontal && bHorizontal) {
+        const midX = (a.x + b.x) / 2 + bendX;
+        if (bendY) {
+          const laneY = (a.y + b.y) / 2 + bendY;
+          const parentStubX = b.x + (b.side === 'left' ? -24 - bendX : 24 + bendX);
+          return `M${a.x},${a.y} H${midX} V${laneY} H${parentStubX} V${b.y} H${b.x}`;
+        }
+        return `M${a.x},${a.y} H${midX} V${b.y} H${b.x}`;
+      }
+      if (!aHorizontal && !bHorizontal) {
+        const midY = (a.y + b.y) / 2 + bendY;
+        if (bendX) {
+          const laneX = (a.x + b.x) / 2 + bendX;
+          const parentStubY = b.y + (b.side === 'top' ? -24 : 24);
+          return `M${a.x},${a.y} V${midY} H${laneX} V${parentStubY} H${b.x} V${b.y}`;
+        }
+        return `M${a.x},${a.y} V${midY} H${b.x} V${b.y}`;
+      }
+      const laneX = (a.x + b.x) / 2 + bendX;
+      const laneY = (a.y + b.y) / 2 + bendY;
+      return aHorizontal
+        ? `M${a.x},${a.y} H${laneX} V${laneY} H${b.x} V${b.y}`
+        : `M${a.x},${a.y} V${laneY} H${laneX} V${b.y} H${b.x}`;
+    }
+
+    function moveOutsideCard(point, distance = 20) {
+      const p = {...point};
+      if (p.side === 'left') p.x -= distance;
+      if (p.side === 'right') p.x += distance;
+      if (p.side === 'top') p.y -= distance;
+      if (p.side === 'bottom') p.y += distance;
+      return p;
+    }
+
+    function drawRelations() {
+      relationLayer.innerHTML = '';
+      const roleCounts = {};
+      relations.forEach((r, index) => {
+        const child = cards.get(r.child), parent = cards.get(r.parent);
+        if (!child || !parent) return;
+        const key = [r.child,r.parent].sort().join('|');
+        const lane = roleCounts[key] = (roleCounts[key] || 0) + 1;
+        const offset = lane > 1 ? (lane % 2 ? -1 : 1) * Math.ceil((lane - 1) / 2) : 0;
+        let a, b, d;
+        if (r.route === 'south') {
+          a = moveOutsideCard({
+            x: child.offsetLeft + child.offsetWidth / 2,
+            y: child.offsetTop + child.offsetHeight,
+            side: 'bottom'
+          });
+          b = {
+            x: parent.offsetLeft,
+            y: parent.offsetTop + parent.offsetHeight / 2,
+            side: 'left'
+          };
+          const routeY = 830 + (r.bendY || 0);
+          const routeX = 5 + (r.bendX || 0);
+          d = `M${a.x},${a.y} V${routeY} H${routeX} V${b.y} H${b.x}`;
+        } else if (r.route === 'vehicle-south') {
+          a = moveOutsideCard({
+            x: child.offsetLeft + child.offsetWidth / 2,
+            y: child.offsetTop,
+            side: 'top'
+          });
+          b = {
+            x: parent.offsetLeft + parent.offsetWidth * r.port,
+            y: parent.offsetTop + parent.offsetHeight,
+            side: 'bottom'
+          };
+          d = `M${a.x},${a.y} V${r.routeY + (r.bendY || 0)} H${b.x} V${b.y}`;
+        } else {
+          a = moveOutsideCard(tablePoint(child, parent, offset));
+          b = tablePoint(parent, child, -offset);
+          d = relationPath(a, b, r);
+        }
+        const group = document.createElementNS('http://www.w3.org/2000/svg','g');
+        group.classList.add('relation-group');
+        const startMarker = r.unique ? 'url(#to-zero-one)' : 'url(#to-many)';
+        group.innerHTML = `
+          <title>${r.child}.${r.field} → ${r.parent}.${r.target}${r.optional?' (nullable)':''}</title>
+          <path class="relation-path" d="${d}" marker-start="${startMarker}" marker-end="url(#to-one)"/>
+          <path class="relation-hit" d="${d}"/>
+          <text class="relation-label" x="${a.x + (b.x-a.x)*.13}" y="${a.y + (b.y-a.y)*.13 - 7}">${r.unique ? '0..1' : '0..*'}</text>
+          <text class="relation-label" x="${a.x + (b.x-a.x)*.87}" y="${a.y + (b.y-a.y)*.87 - 7}">1</text>`;
+        group.addEventListener('click', ev => {
+          ev.stopPropagation();
+          showToast(`${r.child}.${r.field} → ${r.parent}.${r.target}`);
+        });
+        group.addEventListener('pointerdown', ev => beginRelationDrag(ev, r));
+        relationLayer.appendChild(group);
+      });
+    }
+
+    function applyTransform() {
+      world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    function fitDiagram() {
+      const rect = viewport.getBoundingClientRect();
+      const pad = 45;
+      scale = Math.min((rect.width - pad*2) / 1150, (rect.height - pad*2) / 830, 1.25);
+      panX = (rect.width - 1150 * scale) / 2;
+      panY = (rect.height - 830 * scale) / 2;
+      applyTransform();
+      showToast(`Fit to ${Math.round(scale*100)}%`);
+    }
+
+    function zoomAt(next, sx, sy) {
+      next = Math.max(.25, Math.min(1.65, next));
+      const wx = (sx - panX) / scale;
+      const wy = (sy - panY) / scale;
+      scale = next;
+      panX = sx - wx * scale;
+      panY = sy - wy * scale;
+      applyTransform();
+    }
+
+    function focusTable(id) {
+      const card = cards.get(id);
+      const rect = viewport.getBoundingClientRect();
+      scale = Math.max(scale, .82);
+      panX = rect.width/2 - (card.offsetLeft + card.offsetWidth/2) * scale;
+      panY = rect.height/2 - (card.offsetTop + card.offsetHeight/2) * scale;
+      applyTransform();
+      showToast(`${id} · double-clicked to focus`);
+    }
+
+    function beginTableDrag(event) {
+      event.stopPropagation();
+      const card = event.currentTarget.closest('.table-card');
+      dragging = card;
+      card.classList.add('dragging-card');
+      viewport.classList.add('dragging');
+      startX = event.clientX;
+      startY = event.clientY;
+      card.setPointerCapture(event.pointerId);
+    }
+
+    function beginRelationDrag(event, relation) {
+      event.preventDefault();
+      event.stopPropagation();
+      draggingRelation = {
+        relation,
+        baseX: relation.bendX || 0,
+        baseY: relation.bendY || 0
+      };
+      startX = event.clientX;
+      startY = event.clientY;
+      viewport.classList.add('dragging');
+    }
+
+    viewport.addEventListener('pointerdown', event => {
+      if (event.target.closest('.table-card')) return;
+      panning = true;
+      viewport.classList.add('panning');
+      startX = event.clientX;
+      startY = event.clientY;
+      viewport.setPointerCapture(event.pointerId);
+    });
+
+    window.addEventListener('pointermove', event => {
+      if (draggingRelation) {
+        draggingRelation.relation.bendX = draggingRelation.baseX + (event.clientX - startX) / scale;
+        draggingRelation.relation.bendY = draggingRelation.baseY + (event.clientY - startY) / scale;
+        drawRelations();
+      } else if (dragging) {
+        const dx = (event.clientX - startX) / scale;
+        const dy = (event.clientY - startY) / scale;
+        dragging.style.left = `${Math.max(0, dragging.offsetLeft + dx)}px`;
+        dragging.style.top = `${Math.max(0, dragging.offsetTop + dy)}px`;
+        startX = event.clientX; startY = event.clientY;
+        drawRelations();
+      } else if (panning) {
+        panX += event.clientX - startX;
+        panY += event.clientY - startY;
+        startX = event.clientX; startY = event.clientY;
+        applyTransform();
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (dragging) dragging.classList.remove('dragging-card');
+      if (draggingRelation) {
+        showToast(`Moved ${draggingRelation.relation.child}.${draggingRelation.relation.field} connector`);
+      }
+      dragging = null; draggingRelation = null; panning = false;
+      viewport.classList.remove('dragging','panning');
+    });
+
+    viewport.addEventListener('wheel', event => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const factor = event.deltaY < 0 ? 1.1 : .9;
+      zoomAt(scale * factor, event.clientX - rect.left, event.clientY - rect.top);
+    }, {passive:false});
+
+    document.querySelector('#search').addEventListener('input', event => {
+      const term = event.target.value.trim().toLowerCase();
+      cards.forEach((card, id) => {
+        const table = tables.find(t => t.id === id);
+        const match = !term || id.includes(term) || table.columns.some(c => c[0].includes(term) || c[1].includes(term));
+        card.classList.toggle('dim', Boolean(term) && !match);
+        card.classList.toggle('match', Boolean(term) && match);
+      });
+    });
+
+    document.querySelector('#typesButton').addEventListener('click', event => {
+      document.body.classList.toggle('hide-types');
+      event.currentTarget.classList.toggle('active');
+      requestAnimationFrame(drawRelations);
+    });
+    document.querySelector('#fitButton').addEventListener('click', fitDiagram);
+    document.querySelector('#zoomIn').addEventListener('click', () => zoomAt(scale*1.15, viewport.clientWidth/2, viewport.clientHeight/2));
+    document.querySelector('#zoomOut').addEventListener('click', () => zoomAt(scale*.85, viewport.clientWidth/2, viewport.clientHeight/2));
+    document.querySelector('#resetView').addEventListener('click', () => {
+      tables.forEach(t => {
+        const p = initialPositions[t.id], card = cards.get(t.id);
+        card.style.left = `${p.x}px`; card.style.top = `${p.y}px`;
+      });
+      relations.forEach((r, index) => {
+        r.bendX = initialRelationRoutes[index].bendX;
+        r.bendY = initialRelationRoutes[index].bendY;
+      });
+      drawRelations(); fitDiagram();
+    });
+
+    function showToast(message) {
+      const toast = document.querySelector('#toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1500);
+    }
+
+    window.addEventListener('resize', fitDiagram);
+    renderTables();
+    requestAnimationFrame(fitDiagram);
+  </script>
+</body>
+</html>
