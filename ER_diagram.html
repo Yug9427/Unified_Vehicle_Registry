@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ER Diagram — Vehicle Registration DBMS (Chen Notation)</title>
+<meta name="description" content="Interactive Chen-notation Entity-Relationship diagram for Vehicle Registration Database Management System">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#f7f9fc;font-family:'Inter',system-ui,sans-serif;height:100vh;width:100vw}
+canvas{display:block;cursor:grab}
+canvas.dragging{cursor:grabbing}
+#header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(247,249,252,0.94);backdrop-filter:blur(12px);border-bottom:1px solid #cbd5e1;padding:8px 20px;display:flex;align-items:center;justify-content:space-between}
+#header h1{font-size:15px;font-weight:700;color:#1e293b;letter-spacing:-0.3px}
+.legend{display:flex;gap:13px;font-size:9.5px;color:#64748b;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-item svg{flex-shrink:0}
+#controls{position:fixed;bottom:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:5px}
+#controls button{width:36px;height:36px;border-radius:8px;border:1px solid #cbd5e1;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);color:#334155;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+#controls button:hover{background:#e2e8f0;border-color:#94a3b8}
+@media(max-width:1100px){.legend{display:none}}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>⬡ Vehicle Registration DBMS — Entity-Relationship Diagram</h1>
+  <div class="legend">
+    <div class="legend-item">
+      <svg width="28" height="16"><rect x="2" y="2" width="24" height="12" fill="#e0f0ff" stroke="#334155" stroke-width="1.3" rx="1"/></svg>
+      Entity
+    </div>
+    <div class="legend-item">
+      <svg width="30" height="18"><rect x="2" y="2" width="26" height="14" fill="#fef3c7" stroke="#334155" stroke-width="1.3" rx="1"/><rect x="5" y="5" width="20" height="8" fill="none" stroke="#334155" stroke-width="1" rx="1"/></svg>
+      Weak Entity
+    </div>
+    <div class="legend-item">
+      <svg width="28" height="16"><ellipse cx="14" cy="8" rx="12" ry="7" fill="#fff" stroke="#334155" stroke-width="1.2"/></svg>
+      Attribute
+    </div>
+    <div class="legend-item">
+      <svg width="28" height="16"><ellipse cx="14" cy="8" rx="12" ry="7" fill="#fff4e8" stroke="#334155" stroke-width="1.2" stroke-dasharray="4 3"/></svg>
+      Derived
+    </div>
+    <div class="legend-item">
+      <svg width="28" height="16"><ellipse cx="14" cy="8" rx="12" ry="7" fill="#eafaf2" stroke="#334155" stroke-width="1.2"/><ellipse cx="14" cy="8" rx="8" ry="4" fill="none" stroke="#334155" stroke-width="1"/></svg>
+      Multivalued
+    </div>
+    <div class="legend-item">
+      <svg width="28" height="16"><polygon points="14,1 27,8 14,15 1,8" fill="#eaf7ef" stroke="#334155" stroke-width="1.2"/></svg>
+      Relationship
+    </div>
+    <div class="legend-item">
+      <svg width="14" height="14"><text x="7" y="11" text-anchor="middle" font-size="11" font-weight="700" fill="#334155" font-family="Inter" text-decoration="underline">PK</text></svg>
+      Primary Key
+    </div>
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<div id="controls">
+  <button onclick="zoomBy(0.15)" title="Zoom In">+</button>
+  <button onclick="zoomBy(-0.15)" title="Zoom Out">−</button>
+  <button onclick="resetView()" title="Reset View">⌂</button>
+  <button onclick="fitAll()" title="Fit All">☐</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION — compact shapes, close attributes
+// ═══════════════════════════════════════════════════════════════════════════
+const C = {
+  entW: 94, entH: 32,
+  weakGap: 4,
+  attrRy: 13,
+  diaHW: 40, diaHH: 22,
+  attrLineCol: '#b0bcc8', attrLineW: 0.8,
+  relLineCol: '#4b6478', relLineW: 1.5,
+  fill: '#ffffff', stroke: '#334155',
+  textCol: '#172033', cardCol: '#b42318',
+  font: '11px Inter, system-ui, sans-serif',
+  bFont: 'bold 12.5px Inter, system-ui, sans-serif',
+  sFont: '10.5px Inter, system-ui, sans-serif',
+  cardFont: 'bold 11.5px Inter, system-ui, sans-serif',
+  childR: 48,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA — spacious layout ~2200×1500, every entity has its own clear zone
+// No shape overlaps: each row separated by 520px, entities 320-650px apart
+// ═══════════════════════════════════════════════════════════════════════════
+const entityDefs = [
+  // ── Row 1 (y=200): License, User, E-Wallet, Wallet Txn ──
+  {
+    id:'license', name:'License', type:'weak', x:300, y:200, sa:100, r:90,
+    attrs:[
+      {n:'license_no',t:'pk'}, {n:'Issue Date',t:'a'}, {n:'Expiry Date',t:'a'},
+      {n:'License Type',t:'a'}, {n:'Vehicle Class',t:'a'}, {n:'Status',t:'a'},
+    ]
+  },
+  {
+    id:'user', name:'User', type:'entity', x:900, y:200, sa:108, r:100,
+    attrs:[
+      {n:'user_id\n(aadhaar_id)',t:'pk'}, {n:'Password',t:'a'}, 
+      {n:'Name',t:'comp',ch:['Fname','Mname','Lname']},
+      {n:'DOB',t:'a'}, {n:'age',t:'der'}, {n:'Gender',t:'a'},
+      {n:'Blood Group',t:'a'}, {n:'Email',t:'a'}, {n:'Phone No.',t:'a'},
+      {n:'Address',t:'comp',ch:['street','city','state','pincode']},
+    ]
+  },
+  {
+    id:'ewallet', name:'E-Wallet', type:'weak', x:1500, y:200, sa:60, r:75,
+    attrs:[
+      {n:'wallet_id',t:'pk'}, {n:'Balance',t:'a'}, {n:'Status',t:'a'},
+    ]
+  },
+  {
+    id:'wtxn', name:'Wallet\nTransaction', type:'weak', x:1950, y:200, sa:350, r:88,
+    attrs:[
+      {n:'transaction_id',t:'pk'}, {n:'Amount',t:'a'}, {n:'Purpose',t:'a'},
+      {n:'tran_datetime',t:'a'}, {n:'Status',t:'a'},
+    ]
+  },
+
+  // ── Row 2 (y=720): RTO, Vehicle, Challan ──
+  {
+    id:'rto', name:'RTO', type:'entity', x:200, y:720, sa:160, r:85,
+    attrs:[
+      {n:'RTO_code',t:'pk'}, {n:'RTO_name',t:'a'},
+      {n:'Address',t:'comp',ch:['city','district','state','pincode']},
+    ]
+  },
+  {
+    id:'vehicle', name:'Vehicle', type:'entity', x:1100, y:720, sa:178, r:100,
+    attrs:[
+      {n:'vehicle_id\n(VIN)',t:'pk'}, {n:'Model Name',t:'a'}, {n:'Vehicle Weight',t:'a'},
+      {n:'Manufacturer',t:'a'}, {n:'Mfg. Year',t:'a'}, {n:'Reg. Type',t:'a'},
+      {n:'Body Type',t:'a'}, {n:'Fuel Type',t:'a'}, {n:'Odometer',t:'a'}, {n:'Reg. Date',t:'a'},
+    ]
+  },
+  {
+    id:'challan', name:'Challan', type:'weak', x:1750, y:720, sa:340, r:88,
+    attrs:[
+      {n:'challan_id',t:'pk'}, {n:'Amount',t:'a'}, {n:'Reason',t:'a'},
+      {n:'challan_date',t:'a'}, {n:'location',t:'a'}, {n:'Is_Paid',t:'a'},
+    ]
+  },
+
+  // ── Officer (standalone y=1050, left side) ──
+  {
+    id:'officer', name:'Officer', type:'entity', x:420, y:1050, sa:190, r:65,
+    attrs:[
+      {n:'officer_id',t:'pk'}, {n:'Name',t:'a'},
+    ]
+  },
+
+  // ── Row 3 (y=1300): Permit, Insurance, RC Book, PUC, Vehicle Log ──
+  {
+    id:'permit', name:'Permit', type:'weak', x:300, y:1300, sa:258, r:92,
+    attrs:[
+      {n:'permit_id',t:'pk'}, {n:'Permit Type',t:'a'},
+      {n:'Issue Date',t:'a'}, {n:'Expiry Date',t:'a'}, {n:'Status',t:'der'},
+      {n:'Auth. Route',t:'mv'}, {n:'Max Load Cap.',t:'a'}, {n:'Max Passengers',t:'a'},
+    ]
+  },
+  {
+    id:'insurance', name:'Insurance', type:'weak', x:700, y:1300, sa:245, r:88,
+    attrs:[
+      {n:'policy_id',t:'pk'}, {n:'Issue Date',t:'a'}, {n:'Expiry Date',t:'a'},
+      {n:'Coverage Amt',t:'a'}, {n:'Insurance Type',t:'a'}, {n:'Premium Amt',t:'a'},
+      {n:'No. of Claims',t:'a'}, {n:'Ins. Company',t:'a'},
+    ]
+  },
+  {
+    id:'rc', name:'RC Book', type:'weak', x:1080, y:1300, sa:270, r:75,
+    attrs:[
+      {n:'registration_no',t:'pk'}, {n:'Plate Number',t:'a'},
+      {n:'Chassis No.',t:'a'}, {n:'Engine No.',t:'a'}, {n:'Color',t:'a'},
+    ]
+  },
+  {
+    id:'puc', name:'PUC', type:'weak', x:1400, y:1300, sa:280, r:75,
+    attrs:[
+      {n:'cert_number',t:'pk'}, {n:'Date of Test',t:'a'}, {n:'Valid Until',t:'a'},
+      {n:'Cert. Status',t:'der'}, {n:'Centre Code',t:'a'},
+    ]
+  },
+  {
+    id:'vcond', name:'Vehicle\nLog', type:'weak', x:1720, y:1300, sa:310, r:68,
+    attrs:[
+      {n:'status_id',t:'pk'}, {n:'Vehicle Status',t:'a'}, {n:'start_date',t:'a'}, {n:'end_date',t:'a'},
+    ]
+  },
+];
+
+const relDefs = [
+  // User ↔ Vehicle
+  { id:'r_owns', rel:'Owns', rt:'rel', from:'user', to:'vehicle', fc:'N', tc:'N',
+    x:1000, y:460,
+    attrs:[{n:'from_date',t:'a'},{n:'to_date',t:'a'},{n:'is_current',t:'der'}], asa:0, ar:68 },
+  // User ↔ License
+  { id:'r_holds', rel:'Holds', rt:'ident', from:'user', to:'license', fc:'1', tc:'N', x:600, y:200 },
+  // User ↔ E-Wallet
+  { id:'r_hwallet', rel:'Has', rt:'ident', from:'user', to:'ewallet', fc:'1', tc:'1', x:1200, y:200 },
+  // RTO ↔ License
+  { id:'r_isslic', rel:'Issues', rt:'ident', from:'rto', to:'license', fc:'1', tc:'N', x:250, y:460 },
+  // RTO ↔ Officer
+  { id:'r_employs', rel:'Employs', rt:'rel', from:'rto', to:'officer', fc:'1', tc:'N', x:310, y:885 },
+  // RTO ↔ Permit
+  { id:'r_isspmt', rel:'Issues', rt:'ident', from:'rto', to:'permit', fc:'1', tc:'N', x:200, y:1150 },
+  // Vehicle ↔ Insurance
+  { id:'r_reqins', rel:'Requires', rt:'ident', from:'vehicle', to:'insurance', fc:'1', tc:'N', x:880, y:1000 },
+  // Vehicle ↔ RC Book
+  { id:'r_hasrc', rel:'Has', rt:'ident', from:'vehicle', to:'rc', fc:'1', tc:'1', x:1090, y:1000 },
+  // Vehicle ↔ PUC
+  { id:'r_haspuc', rel:'Has', rt:'ident', from:'vehicle', to:'puc', fc:'1', tc:'N', x:1250, y:1000 },
+  // Vehicle ↔ Vehicle Log
+  { id:'r_hasvc', rel:'Has', rt:'ident', from:'vehicle', to:'vcond', fc:'1', tc:'N', x:1420, y:1000 },
+  // Vehicle ↔ Permit
+  { id:'r_haspmt', rel:'Has', rt:'ident', from:'vehicle', to:'permit', fc:'1', tc:'N', x:660, y:1000 },
+  // Vehicle ↔ Challan
+  { id:'r_fined', rel:'Fined', rt:'ident', from:'vehicle', to:'challan', fc:'1', tc:'N', x:1425, y:720 },
+  // Officer ↔ Challan
+  { id:'r_isschl', rel:'Issues', rt:'ident', from:'officer', to:'challan', fc:'1', tc:'N', x:1090, y:900 },
+  // E-Wallet ↔ Wallet Txn
+  { id:'r_fromtx', rel:'From', rt:'ident', from:'ewallet', to:'wtxn', fc:'1', tc:'N', x:1720, y:165 },
+  { id:'r_totx', rel:'To', rt:'ident', from:'ewallet', to:'wtxn', fc:'1', tc:'N', x:1730, y:265 },
+  // Challan ↔ Wallet Txn
+  { id:'r_paidvia', rel:'Paid via', rt:'ident', from:'challan', to:'wtxn', fc:'1', tc:'1', x:1860, y:460 },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD FLAT NODE & EDGE ARRAYS
+// ═══════════════════════════════════════════════════════════════════════════
+const nodes = [];
+const edges = [];
+const nodeMap = {};
+
+function addNode(id, type, text, x, y, gid, pid) {
+  const n = { id, type, text, x, y, gid: gid||id, pid: pid||null };
+  nodes.push(n);
+  nodeMap[id] = n;
+  return n;
+}
+
+function degToRad(d) { return d * Math.PI / 180; }
+
+// Build entity nodes + attribute nodes
+entityDefs.forEach(e => {
+  addNode(e.id, e.type, e.name, e.x, e.y, e.id);
+
+  const n = e.attrs.length;
+  if (!n) return;
+  const startRad = degToRad(e.sa || 90);
+  const step = (2 * Math.PI) / n;
+  const radius = e.r || 100;
+
+  e.attrs.forEach((a, i) => {
+    const angle = startRad - i * step;
+    const ax = e.x + Math.cos(angle) * radius;
+    const ay = e.y - Math.sin(angle) * radius;
+    const aid = `${e.id}_a${i}`;
+
+    addNode(aid, a.t, a.n, ax, ay, e.id, e.id);
+    edges.push({ f: e.id, t: aid, et: 'attr' });
+
+    // Composite children
+    if (a.ch && a.ch.length) {
+      const outAngle = Math.atan2(ay - e.y, ax - e.x);
+      const cn = a.ch.length;
+      const spread = 0.3 * cn;
+      a.ch.forEach((ch, j) => {
+        const off = cn > 1 ? (j / (cn - 1) - 0.5) * spread : 0;
+        const cid = `${aid}_c${j}`;
+        addNode(cid, 'a', ch,
+          ax + Math.cos(outAngle + off) * C.childR,
+          ay + Math.sin(outAngle + off) * C.childR,
+          e.id, aid
+        );
+        edges.push({ f: aid, t: cid, et: 'attr' });
+      });
+    }
+  });
+});
+
+// Build relationship diamond nodes + their attributes + connection edges
+relDefs.forEach(r => {
+  addNode(r.id, r.rt, r.rel, r.x, r.y, r.id);
+
+  edges.push({ f: r.from, t: r.id, et: 'rel', card: r.fc, ce: 'from' });
+  edges.push({ f: r.id, t: r.to, et: 'rel', card: r.tc, ce: 'to' });
+
+  if (r.attrs && r.attrs.length) {
+    const rn = r.attrs.length;
+    const rStart = degToRad(r.asa || 0);
+    const rStep = (2 * Math.PI) / rn;
+    const rRad = r.ar || 90;
+    r.attrs.forEach((a, i) => {
+      const angle = rStart - i * rStep;
+      const aid = `${r.id}_a${i}`;
+      addNode(aid, a.t, a.n,
+        r.x + Math.cos(angle) * rRad,
+        r.y - Math.sin(angle) * rRad,
+        r.id, r.id
+      );
+      edges.push({ f: r.id, t: aid, et: 'attr' });
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS SETUP — DPR-aware for crisp text
+// ═══════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+let W, H, panX = 0, panY = 0, zoom = 1;
+let isPanning = false, psx, psy;
+let dragNode = null, dragGid = null, dox, doy;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = `${W}px`;
+  canvas.style.height = `${H}px`;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAWING HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function measureText(text, font) {
+  ctx.save();
+  ctx.font = font || C.font;
+  const lines = text.split('\n');
+  let maxW = 0;
+  lines.forEach(l => { const m = ctx.measureText(l).width; if (m > maxW) maxW = m; });
+  ctx.restore();
+  return { w: maxW, lines: lines.length };
+}
+
+function fillText(x, y, text, font, color, underline) {
+  ctx.save();
+  ctx.font = font || C.font;
+  ctx.fillStyle = color || C.textCol;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = text.split('\n');
+  const lh = parseFloat(((font || C.font).match(/(\d+\.?\d*)px/) || [])[1] || '12') * 1.3;
+  const totalH = (lines.length - 1) * lh;
+  lines.forEach((line, i) => {
+    const ly = y - totalH / 2 + i * lh;
+    ctx.fillText(line, x, ly);
+    if (underline) {
+      const tw = ctx.measureText(line).width;
+      ctx.beginPath();
+      ctx.moveTo(x - tw / 2, ly + lh * 0.35);
+      ctx.lineTo(x + tw / 2, ly + lh * 0.35);
+      ctx.strokeStyle = color || C.textCol;
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+function drawEntityRect(x, y, text, isWeak) {
+  const m = measureText(text, C.bFont);
+  const w = Math.max(C.entW, m.w + 22);
+  const h = Math.max(C.entH, m.lines * 15 + 10);
+
+  ctx.save();
+  ctx.fillStyle = isWeak ? '#fff2d8' : '#e0f0ff';
+  ctx.strokeStyle = C.stroke;
+  ctx.lineWidth = 1.6;
+
+  if (isWeak) {
+    const g = C.weakGap;
+    ctx.fillRect(x - w/2 - g, y - h/2 - g, w + 2*g, h + 2*g);
+    ctx.strokeRect(x - w/2 - g, y - h/2 - g, w + 2*g, h + 2*g);
+    ctx.strokeRect(x - w/2, y - h/2, w, h);
+  } else {
+    ctx.fillRect(x - w/2, y - h/2, w, h);
+    ctx.strokeRect(x - w/2, y - h/2, w, h);
+  }
+  ctx.restore();
+  fillText(x, y, text, C.bFont, C.textCol);
+}
+
+function drawAttrEllipse(x, y, text, type) {
+  const m = measureText(text, C.font);
+  const rx = Math.max(32, m.w / 2 + 10);
+  const ry = Math.max(C.attrRy, m.lines * 7 + 6);
+
+  ctx.save();
+  ctx.fillStyle = type === 'pk' ? '#fff7d6' : type === 'der' ? '#fff4e8' : type === 'mv' ? '#eafaf2' : '#ffffff';
+  ctx.strokeStyle = C.stroke;
+  ctx.lineWidth = 1.1;
+
+  if (type === 'der') ctx.setLineDash([4, 3]);
+
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (type === 'mv') {
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx - 4, ry - 3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  fillText(x, y, text, C.font, C.textCol, type === 'pk');
+}
+
+function drawDiamond(x, y, text, isIdent) {
+  const m = measureText(text, C.sFont);
+  const hw = Math.max(C.diaHW, m.w / 2 + 14);
+  const hh = Math.max(C.diaHH, m.lines * 7 + 10);
+
+  ctx.save();
+  ctx.fillStyle = isIdent ? '#f1ecff' : '#eaf7ef';
+  ctx.strokeStyle = C.stroke;
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.moveTo(x, y - hh);
+  ctx.lineTo(x + hw, y);
+  ctx.lineTo(x, y + hh);
+  ctx.lineTo(x - hw, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  if (isIdent) {
+    const ihw = hw - 6, ihh = hh - 4;
+    ctx.beginPath();
+    ctx.moveTo(x, y - ihh);
+    ctx.lineTo(x + ihw, y);
+    ctx.lineTo(x, y + ihh);
+    ctx.lineTo(x - ihw, y);
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  fillText(x, y, text, C.sFont, C.textCol);
+}
+
+function drawLine(x1, y1, x2, y2, isRelation) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = isRelation ? C.relLineCol : C.attrLineCol;
+  ctx.lineWidth = isRelation ? C.relLineW : C.attrLineW;
+  ctx.stroke();
+}
+
+function drawCard(x1, y1, x2, y2, card, end) {
+  if (!card) return;
+  const t = 0.18;
+  let lx, ly;
+  if (end === 'from') {
+    lx = x2 + (x1 - x2) * t;
+    ly = y2 + (y1 - y2) * t;
+  } else {
+    lx = x1 + (x2 - x1) * t;
+    ly = y1 + (y2 - y1) * t;
+  }
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const px = -Math.sin(angle) * 12;
+  const py = Math.cos(angle) * 12;
+  ctx.save();
+  ctx.font = C.cardFont;
+  ctx.fillStyle = C.cardCol;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(card, lx + px, ly + py);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN DRAW
+// ═══════════════════════════════════════════════════════════════════════════
+function drawGrid() {
+  const step = 100;
+  const x0 = Math.floor(-panX / zoom / step) * step - step;
+  const y0 = Math.floor(-panY / zoom / step) * step - step;
+  const x1 = x0 + W / zoom + 2 * step;
+  const y1 = y0 + H / zoom + 2 * step;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.035)';
+  ctx.lineWidth = 0.5;
+  for (let gx = x0; gx <= x1; gx += step) {
+    ctx.beginPath(); ctx.moveTo(gx, y0); ctx.lineTo(gx, y1); ctx.stroke();
+  }
+  for (let gy = y0; gy <= y1; gy += step) {
+    ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function draw() {
+  ctx.save();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f7f9fc';
+  ctx.fillRect(0, 0, W, H);
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+
+  drawGrid();
+
+  // Pass 1a: Draw attribute edges (thin, light — background layer)
+  edges.forEach(e => {
+    if (e.et !== 'attr') return;
+    const fn = nodeMap[e.f], tn = nodeMap[e.t];
+    if (!fn || !tn) return;
+    drawLine(fn.x, fn.y, tn.x, tn.y, false);
+  });
+
+  // Pass 1b: Draw relationship edges (thicker, darker — on top of attr lines)
+  edges.forEach(e => {
+    if (e.et !== 'rel') return;
+    const fn = nodeMap[e.f], tn = nodeMap[e.t];
+    if (!fn || !tn) return;
+    drawLine(fn.x, fn.y, tn.x, tn.y, true);
+    drawCard(fn.x, fn.y, tn.x, tn.y, e.card, e.ce);
+  });
+
+  // Pass 2: Draw all nodes (shapes on top of lines)
+  const attrNodes = nodes.filter(n => ['a','pk','der','mv','comp'].includes(n.type));
+  const mainNodes = nodes.filter(n => !['a','pk','der','mv','comp'].includes(n.type));
+
+  attrNodes.forEach(n => drawAttrEllipse(n.x, n.y, n.text, n.type));
+  mainNodes.forEach(n => {
+    switch (n.type) {
+      case 'entity': drawEntityRect(n.x, n.y, n.text, false); break;
+      case 'weak':   drawEntityRect(n.x, n.y, n.text, true); break;
+      case 'rel':    drawDiamond(n.x, n.y, n.text, false); break;
+      case 'ident':  drawDiamond(n.x, n.y, n.text, true); break;
+    }
+  });
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - panX) / zoom, y: (sy - panY) / zoom };
+}
+
+function hitTest(wx, wy) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    const dx = wx - n.x, dy = wy - n.y;
+    if (['entity','weak'].includes(n.type)) {
+      const m = measureText(n.text, C.bFont);
+      const hw = Math.max(C.entW, m.w + 22) / 2 + (n.type === 'weak' ? C.weakGap : 0);
+      const hh = Math.max(C.entH, m.lines * 15 + 10) / 2 + (n.type === 'weak' ? C.weakGap : 0);
+      if (Math.abs(dx) <= hw && Math.abs(dy) <= hh) return n;
+    } else if (['rel','ident'].includes(n.type)) {
+      const m = measureText(n.text, C.sFont);
+      const hw = Math.max(C.diaHW, m.w/2 + 14);
+      const hh = Math.max(C.diaHH, m.lines * 7 + 10);
+      if (Math.abs(dx)/hw + Math.abs(dy)/hh <= 1) return n;
+    } else {
+      const m = measureText(n.text, C.font);
+      const rx = Math.max(32, m.w / 2 + 10);
+      const ry = Math.max(C.attrRy, m.lines * 7 + 6);
+      if ((dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) <= 1) return n;
+    }
+  }
+  return null;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = hitTest(w.x, w.y);
+  if (hit) {
+    if (['entity','weak','rel','ident'].includes(hit.type)) {
+      dragGid = hit.gid;
+      dragNode = null;
+    } else {
+      dragNode = hit;
+      dragGid = null;
+    }
+    dox = w.x; doy = w.y;
+    canvas.classList.add('dragging');
+  } else {
+    isPanning = true;
+    psx = e.clientX - panX;
+    psy = e.clientY - panY;
+    canvas.classList.add('dragging');
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (isPanning) {
+    panX = e.clientX - psx;
+    panY = e.clientY - psy;
+    draw();
+    return;
+  }
+  if (dragGid || dragNode) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    const ddx = w.x - dox, ddy = w.y - doy;
+    dox = w.x; doy = w.y;
+
+    if (dragGid) {
+      nodes.forEach(n => { if (n.gid === dragGid) { n.x += ddx; n.y += ddy; } });
+    } else if (dragNode) {
+      const parentId = dragNode.id;
+      dragNode.x += ddx;
+      dragNode.y += ddy;
+      nodes.forEach(n => { if (n.pid === parentId) { n.x += ddx; n.y += ddy; } });
+    }
+    draw();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  isPanning = false;
+  dragGid = null;
+  dragNode = null;
+  canvas.classList.remove('dragging');
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.08 : 0.08;
+  const oldZoom = zoom;
+  zoom = Math.max(0.12, Math.min(2.5, zoom + delta));
+  const r = zoom / oldZoom;
+  panX = e.clientX - (e.clientX - panX) * r;
+  panY = e.clientY - (e.clientY - panY) * r;
+  draw();
+}, { passive: false });
+
+function zoomBy(d) {
+  const oldZoom = zoom;
+  zoom = Math.max(0.12, Math.min(2.5, zoom + d));
+  const r = zoom / oldZoom;
+  panX = W/2 - (W/2 - panX) * r;
+  panY = H/2 - (H/2 - panY) * r;
+  draw();
+}
+
+function resetView() {
+  panX = 0; panY = 0; zoom = 1;
+  draw();
+}
+
+function fitAll() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    if (n.x < minX) minX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y > maxY) maxY = n.y;
+  });
+  const pad = 160;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const ww = maxX - minX, hh = maxY - minY;
+  zoom = Math.min(W / ww, (H - 50) / hh, 1.5);
+  panX = (W - ww * zoom) / 2 - minX * zoom;
+  panY = (H - hh * zoom) / 2 - minY * zoom + 20;
+  draw();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+resize();
+setTimeout(fitAll, 50);
+</script>
+</body>
+</html>
