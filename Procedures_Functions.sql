@@ -351,12 +351,7 @@ BEGIN
     VALUES (p_wallet_id, NULL, v_challan_amount, 'challan', NOW(), 'Success')
     RETURNING transaction_id INTO v_transaction_id;
 
-    -- Step 4: Deduct from wallet balance
-    UPDATE e_wallet
-    SET balance = balance - v_challan_amount
-    WHERE wallet_id = p_wallet_id;
-
-    -- Step 5: Mark challan as paid and link the transaction
+    -- Step 4: Mark challan as paid and link the transaction
     UPDATE challan
     SET is_paid = true,
         wallet_transaction_id = v_transaction_id
